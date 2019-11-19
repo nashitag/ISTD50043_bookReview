@@ -1,4 +1,4 @@
-from flask import send_from_directory,url_for, redirect, Flask, render_template, request, session
+from flask import send_from_directory, url_for, redirect, Flask, render_template, request, session
 from flask_session import Session
 import SQLservice
 import SQLservice_User
@@ -22,24 +22,13 @@ mg = mongoService.Mg()
 
 with open('categories.json') as f:
     data = json.load(f)
-#############yy edits#################################
-@app.route('/css/<path:path>')
-def send_css(path):
-    return send_from_directory('css', path)
-@app.route('/js/<path:path>')
-def send_js(path):
-    return send_from_directory('js', path)
-@app.route('/font-awesome-4.7.0/<path:path>')
-def send_node(path):
-    return send_from_directory('font-awesome-4.7.0', path)
-@app.route('/img/<path:path>')
-def send_img(path):
-    return send_from_directory('img', path)
-###################################################
+
+
 @app.route("/home_page")
 def home_page():
-    cats = ["Mystery, Thriller & Suspense","Science Fiction & Fantasy","Action & Adventure","Love & Romance","Business & Money"
-,"Health, Fitness & Dieting","Professional & Technical","Administration & Policy","Dictionaries & Thesauruses","Biographies & Memoirs"]
+    cats = ["Mystery, Thriller & Suspense", "Science Fiction & Fantasy", "Action & Adventure", "Love & Romance",
+            "Business & Money", "Health, Fitness & Dieting", "Professional & Technical", "Administration & Policy",
+            "Dictionaries & Thesauruses", "Biographies & Memoirs"]
 
     book_list = mongoService.Mg().get_bestsellers()
 
@@ -47,15 +36,11 @@ def home_page():
     for cat in cats:
         top_in_cat = mongoService.Mg().get_highest_rank_books(cat)
         cat_book_list.append(top_in_cat)
-    #mg.insert_query
-    print("\n\n\n\n")
-    print(book_list[0])
     is_admin = False
-    if 'user' in session: is_admin = session['isadmin'] 
-    return render_template("home_page.html",results=book_list[:-3], catbook_list = cat_book_list, isadmin=is_admin, in_session=('user' in session))
+    if 'user' in session: is_admin = session['isadmin']
+    return render_template("home_page.html", results=book_list[:-3], catbook_list=cat_book_list, isadmin=is_admin,
+                           in_session=('user' in session))
 
-
-#############################################
 
 @app.route("/")
 def home():
@@ -65,30 +50,33 @@ def home():
 
 @app.route("/bookinfo")
 def book_list():
+    # if 'user' not in session:
+    #     return redirect(url_for('login'))
     return str(mg.get_all())
 
 
 @app.route("/bookinfo/<page_num>/<category>")
 def book_list_page(page_num, category):
-    if 'user' not in session:
-        return redirect(url_for('login'))
+    # if 'user' not in session:
+    #    return redirect(url_for('login'))
     page_num = int(page_num)
     book_list = mongoService.Mg().get_all_books(page_num, category)
     # TODO: what is this for?
     page_numbers = list(range(1, 4000))
-    add_log(request.method, request.url, "all_book_returned", session['userid'], session['isadmin'], mg)
+    if 'user' in session:
+        add_log(request.method, request.url, "all_book_returned", session['userid'], session['isadmin'], mg)
     return render_template("booklist.html", results=book_list, page_numbers=page_numbers, categories=data)
 
 
 @app.route("/searchpage", methods=["POST"])
 def searchpage():
-    if 'user' not in session:
-        return redirect(url_for('login'))
+    # if 'user' not in session:
+    #     return redirect(url_for('login'))
     keyword = request.form.get("searchpage")
     keyword = ''.join([o for o in keyword if o not in string.punctuation])
     print(keyword)
-    
-    return redirect(url_for( "book_list_page" , page_num=int(keyword), category="all"))
+
+    return redirect(url_for("book_list_page", page_num=int(keyword), category="all"))
 
     # book_list = mongoService.Mg().get_all_books(int(keyword), "all")
     # page_numbers = list(range(1, 4000))
@@ -96,23 +84,30 @@ def searchpage():
     # return render_template("booklist.html", results=book_list, page_numbers=page_numbers, categories=data)
 
 
-
 @app.route("/book/<asin>", methods=["GET", "POST"])
 def info(asin):
+    # if request.method == "GET":
+    #     if 'user' not in session:
+    #         return redirect(url_for('login'))
+
     if request.method == "POST":
         if 'user' not in session:
-            add_log(request.method, request.url, None, None, None, mg) 
+            add_log(request.method, request.url, None, None, None, mg)
             return redirect(url_for('login'))
         title = request.form.get("title")
         comment = request.form.get("comment")
         my_rating = request.form.get("rating")
-        add_log(request.method, request.url, {"user_comment": comment, "rating": my_rating}, session['userid'], session['isadmin'], mg)
-        SQLservice.SQL_db().add_review(asin=asin, overall=my_rating, reviewerName=session['user'], reviewerID=session['userid'], summary=title, reviewText= comment)
+        add_log(request.method, request.url, {"user_comment": comment, "rating": my_rating}, session['userid'],
+                session['isadmin'], mg)
+        SQLservice.SQL_db().add_review(asin=asin, overall=my_rating, reviewerName=session['user'],
+                                       reviewerID=session['userid'], summary=title, reviewText=comment)
 
     book_info = mongoService.Mg().get_all_info(asin)[0]
     results = SQLservice.SQL_db().get_review(asin)
-    rating = round(np.mean([review[2] for review in results]),2)
-    add_log(request.method, request.url, {"bookNumber": asin, "number_of_reviews": len(results), "rating": rating}, session['userid'], session['isadmin'], mg)
+    rating = round(np.mean([review[2] for review in results]), 2)
+    if 'user' in session:
+        add_log(request.method, request.url, {"bookNumber": asin, "number_of_reviews": len(results), "rating": rating},
+                session['userid'], session['isadmin'], mg)
 
     return render_template("info.html", book_info=book_info, reviews=results, rating=rating)
 
@@ -125,7 +120,7 @@ def dashboard():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if 'user' in session:
-        add_log(request.method, request.url, None , session['userid'], session['isadmin'], mg)
+        add_log(request.method, request.url, None, session['userid'], session['isadmin'], mg)
         return redirect(url_for('home_page'))
 
     message = None
@@ -135,17 +130,19 @@ def login():
         passw = request.form.get("password")
         passw_hash = hashlib.md5(passw.encode('utf-8')).hexdigest()
         user_id, verify_passw_hash, isadmin = SQLservice_User.SQL_User_db().get_usr_info(usern)
-        print(type(verify_passw_hash),type(passw_hash))
-        print(verify_passw_hash,passw_hash)
+        print(type(verify_passw_hash), type(passw_hash))
+        print(verify_passw_hash, passw_hash)
         if passw_hash == verify_passw_hash:
             session['user'] = usern
             session['userid'] = user_id
             session['isadmin'] = True if isadmin else False
-            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "login_sucessful": True}, None, None, mg)
+            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "login_sucessful": True},
+                    None, None, mg)
             return redirect(url_for('home_page'))
         else:
             message = "Username or password is incorrect."
-            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "login_sucessful": False}, None, None, mg)
+            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "login_sucessful": False},
+                    None, None, mg)
     return render_template("login.html", message=message)
 
 
@@ -161,8 +158,8 @@ def logout():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if 'user' in session:
-        add_log(request.method, request.url, None , session['userid'], session['isadmin'], mg)
-        return redirect(url_for('dashboard'))
+        add_log(request.method, request.url, None, session['userid'], session['isadmin'], mg)
+        return redirect(url_for('home_page'))
 
     message = None
 
@@ -177,33 +174,37 @@ def register():
             session['user'] = usern
             session['userid'] = user_id
             session['isadmin'] = False
-            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "register_sucessful": True}, None, None, mg)
-            return redirect(url_for('dashboard'))
-        # TODO: Save reviewerID in session so that can be added to review DB
+            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "register_sucessful": True},
+                    None, None, mg)
+            return redirect(url_for('home_page'))
         else:
             message = "Username already exists."
-            add_log(request.method, request.url, {"usern": usern, "passw_hash": passw_hash, "register_sucessful": False}, None, None, mg)
+            add_log(request.method, request.url,
+                    {"usern": usern, "passw_hash": passw_hash, "register_sucessful": False}, None, None, mg)
 
     return render_template("registration.html", message=message)
 
 
 @app.route("/search", methods=["POST"])
 def search():
-    if 'user' not in session:
-        return redirect(url_for('login'))
+    # if 'user' not in session:
+    #     return redirect(url_for('login'))
     keyword = request.form.get("searchbox")
     keyword = ''.join([o for o in keyword if o not in string.punctuation])
     results = mg.search_book(keyword)
-    session['isadmin'] = 1 # delete this
-    add_log(request.method, request.url, {"search_keyword": keyword, "results_length": len(results)}, session['userid'], session['isadmin'], mg)
+    session['isadmin'] = 1  # delete this
+    if 'user' in session:
+        add_log(request.method, request.url, {"search_keyword": keyword, "results_length": len(results)},
+                session['userid'], session['isadmin'], mg)
     return render_template("search.html", results=results)
-
 
 
 @app.route("/addbook", methods=['POST', 'GET'])
 def addBook():
-    if 'user' not in session:
-        add_log(request.method, request.url, None, None, None, mg) 
+    is_admin = False
+    if 'user' in session: is_admin = session['isadmin']
+    if not is_admin:
+        add_log(request.method, request.url, None, None, None, mg)
         return redirect(url_for('login'))
 
     if request.method == 'POST':
@@ -221,16 +222,23 @@ def addBook():
             mg.add_book(asin, title=title, price=price, imUrl=url, category=category, brand=brand,
                         also_bought=alsoBought, also_viewed=alsoViewed, buy_after_viewing=buyAfterViewing,
                         bought_together=boughtTogether)
-            add_log(request.method, request.url, {"book_information": {"title": titile, "price": price, "category": category}}, session['userid'], session['isadmin'], mg)
+            add_log(request.method, request.url,
+                    {"book_information": {"title": title, "price": price, "category": category}}, session['userid'],
+                    session['isadmin'], mg)
             return render_template("addsuccess.html")
     else:
         return render_template("addbook.html")
+
 
 @app.route("/addsuccess", methods=['POST', 'GET'])
 def addsuccess():
     return render_template("addsuccess.html")
 
 
-    
+@app.route('/img/<path:path>')
+def send_img(path):
+    return send_from_directory('img', path)
+
+
 if __name__ == "__main__":
     app.run()
